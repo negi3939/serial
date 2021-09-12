@@ -56,17 +56,45 @@ int Serial::init(){
 
     cfsetispeed( &tio, baudRate );   
     cfsetospeed( &tio, baudRate );
-
     cfmakeraw(&tio);                    // RAWモード
-
     tcsetattr( fd, TCSANOW, &tio );     // デバイスに設定を行う
-
     ioctl(fd, TCSETA, &tio);
+
+    gen_crc8ccit_table();
 
     return 0;
 }
 
-int Serial::read_s(){
+void Serial::gen_crc8ccit_table(){
+    crc8ccit_poly = 0x8D;
+    uint8_t val;
+    
+    crc8ccit_table = new uint8_t[256];
+    for(uint16_t cnt = 0;cnt < 256;cnt++){
+        val = (uint8_t)cnt;
+        for(uint16_t cnt2 = 0;cnt2 < 8;cnt2++){
+            if(val & 0x80){
+                val <<= 1;
+                val ^= crc8ccit_poly;
+            }else{
+                val <<= 1;
+            }
+        }
+        crc8ccit_table[cnt] = val;
+    }
+}
+
+uint8_t Serial::calc_crc8ccit(uint8_t *data,uint8_t len){
+    uint8_t crc8ccit = 0x00;
+    
+    for(uint16_t cnt = 0;cnt < len;cnt++){
+        crc8ccit = crc8ccit_table[crc8ccit ^ data[cnt]];
+    }
+    return crc8ccit;
+}
+
+
+int Serial::read_trush(){
     int len,finishf=1;
     long count = 0;
     int offset=0;
@@ -83,7 +111,7 @@ int Serial::read_s(){
     return 0;
 }
 
-int Serial::read_s(uint8_t *buf8t,int len,uint8_t headbyte){
+int Serial::read_get(uint8_t *buf8t,int len,uint8_t headbyte){
     int leng = 0,finishf=1;
     long count = 0;
     while(leng<len){
@@ -96,19 +124,21 @@ int Serial::read_s(uint8_t *buf8t,int len,uint8_t headbyte){
             leng += read(fd, buf8t+leng, len-leng);
         }
     }
-   
+    if(buf8t[len-1] != calc_crc8ccit(buf8t,len-1)){
+        std::cout << "\tfalse" << std::endl;
+        return 0;
+    }
     for(int ii = 0; ii < leng; ii++) {
         std::cout << std::setfill('0') << std::setw(2) << std::hex << (int)buf8t[ii] << std::flush;            
     }
 
-    std::cout << std::endl;
-
-    return 0;
+    //std::cout << std::endl;
+    std::cout << "\ttrue" << std::endl;
+    return 1;
 }
 
 
-
-int Serial::write_s(std::string str){
+int Serial::write_string(std::string str){
     ssize_t ret = 0;
     int num = str.size();
     const char* buff = str.c_str();
@@ -139,12 +169,11 @@ int main(){
     uint8_t buf8t[5];
     uint8_t headbyte=0x0a;
     while(1){
-        ser->read_s(buf8t,5,headbyte);
+        ser->read_get(buf8t,5,headbyte);
         if(ky.kbhit()){
             break;
         }
     }
-    //uniservo->read_s();
     delete ser;
     return 0;
 }

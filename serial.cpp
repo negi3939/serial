@@ -240,17 +240,21 @@ int main(){
     send8t[2] = 0x00;
     send8t[3] = 0x00;
 
-    int data = -360,datad;
-    send8t[1] = ((uint16_t)data >> 8 ) & 0xFF; 
-    send8t[2] = (uint16_t)data & 0xFF;
-    datad = (int16_t)((send8t[1] << 8) + send8t[2]);
-    std::cout << data << " " << (uint16_t) data << " " << datad << std::endl;
-    std::cout << std::setfill('0') << std::setw(2) << std::hex << (int)send8t[1] << " " << (int)send8t[2] << std::endl;
-    
-    while(0){
+    int data = -90;
+    long count = 0;
+    while(1){
+        if(count >30){
+            data += 1;
+            count = 0;
+        }
+        if(data>90){data = -90;}
+        send8t[1] = ((uint16_t)data >> 8 ) & 0xFF; 
+        send8t[2] = (uint16_t)data & 0xFF;
         ser->write_wcrc(send8t,sizeof(send8t));
         readret = ser->read_get(read8t,sizeof(read8t),5);
-        if(readret==0){std::cout << "time out" << std::endl;}
+        std::cout << std::dec << data << "\t" <<std::setfill('0') << std::setw(2) << std::hex << (int)send8t[1] << (int)send8t[2]<< "\t" <<std::flush;
+        //if(readret==0){std::cout << "time out" << std::endl;}
+        count++;
         if(ky.kbhit()){
             break;
         }

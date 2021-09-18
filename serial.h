@@ -24,6 +24,8 @@ class Serial{
         virtual int read_get(uint8_t *buf8t,int len,uint8_t headbyte);                      //read()から取得　ヘッダ指定
         virtual int read_get(uint8_t *buf8t,int len,int timeoutms);                         //read()から取得　ヘッダ指定
         virtual int write_string(std::string str);                                          //文字列書き込み
+        virtual int write_raw(uint8_t *buf8t,int len);                                      //書き込み
+        virtual int write_wcrc(uint8_t *buf8t,int len);                                     //末尾にCRC1byte追加して書き込み
         int close_s();          
         ~Serial();        
 };

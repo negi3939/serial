@@ -203,6 +203,19 @@ int Serial::write_string(std::string str){
     return ret;
 }
 
+int Serial::write_raw(uint8_t *buf8t,int len){
+    int ret = 0;
+    ret = write(fd,buf8t,len);
+    return ret;
+}
+
+int Serial::write_wcrc(uint8_t *buf8t,int len){
+    int ret = 0;
+    buf8t[len-1] = calc_crc8ccit(buf8t,len-1);
+    ret = write(fd,buf8t,len);
+    return ret;
+}
+
 int Serial::close_s(){
     tcsetattr(fd, TCSANOW, &oldtio);
     close(fd);
@@ -219,10 +232,24 @@ int main(){
     int boardrate = B115200;
     Serial *ser = new Serial(boardrate,devname);
     keyboard ky;
-    uint8_t buf8t[5];
+    uint8_t read8t[5];
+    uint8_t send8t[5];
     int readret = 0;
-    while(1){
-        readret = ser->read_get(buf8t,5,5);
+    send8t[0] = 0x0b;
+    send8t[1] = 0x00;
+    send8t[2] = 0x00;
+    send8t[3] = 0x00;
+
+    int data = -360,datad;
+    send8t[1] = ((uint16_t)data >> 8 ) & 0xFF; 
+    send8t[2] = (uint16_t)data & 0xFF;
+    datad = (int16_t)((send8t[1] << 8) + send8t[2]);
+    std::cout << data << " " << (uint16_t) data << " " << datad << std::endl;
+    std::cout << std::setfill('0') << std::setw(2) << std::hex << (int)send8t[1] << " " << (int)send8t[2] << std::endl;
+    
+    while(0){
+        ser->write_wcrc(send8t,sizeof(send8t));
+        readret = ser->read_get(read8t,sizeof(read8t),5);
         if(readret==0){std::cout << "time out" << std::endl;}
         if(ky.kbhit()){
             break;

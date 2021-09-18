@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <cstdlib>
 #include <iomanip>
+#include <sys/time.h>
 
 
 #include "keyboard.h"
@@ -43,13 +44,14 @@ Serial::Serial(int baundrate,char *devname){
 
 int Serial::init(){
 
-    fd = open(portname, O_RDWR);
+    fd = open(portname, O_RDWR |  O_NONBLOCK);
     if (fd < 0){
         std::cout<< "open error!" <<std::endl;
         return -1;
     }
     tcgetattr(fd, &oldtio);
     bzero(&tio,sizeof(tio));
+    
     tio.c_cflag |= CREAD;               // 受信有効
     tio.c_cflag |= CLOCAL;              // ローカルライン（モデム制御なし）
     tio.c_cflag |= CS8;                 // データビット:8bit
@@ -57,15 +59,13 @@ int Serial::init(){
     tio.c_cflag |= 0;                   // パリティ:None
     tio.c_oflag = 0;
     tio.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
-    tio.c_cc[VMIN]=0;                   //最低バイト数指定なし
-    tio.c_cc[VTIME]=1;                  //100msecでタイムアウト    
   
     cfsetospeed( &tio, baudRate );
     cfsetispeed( &tio, baudRate );
-    //cfmakeraw(&tio);                    // RAWモード
-    //tcflush(fd,TCOFLUSH);
-    //tcflush(fd,TCIFLUSH);
-    //tcsetattr( fd, TCSANOW, &tio );     // デバイスに設定を行う
+    cfmakeraw(&tio);                    // RAWモード
+    tcflush(fd,TCOFLUSH);
+    tcflush(fd,TCIFLUSH);
+    tcsetattr( fd, TCSANOW, &tio );     // デバイスに設定を行う
     ioctl(fd, TCSETA, &tio);
 
     gen_crc8ccit_table();
@@ -119,11 +119,30 @@ int Serial::read_trush(){
     return 0;
 }
 
+int Serial::read_get(uint8_t *buf8t,int len){
+    int leng = 0,finishf=1;
+    while(leng<len){
+        if(leng<1){
+            leng = read(fd, buf8t, 1);
+        }else{
+            leng += read(fd, buf8t+leng, len-leng);
+        }
+    }
+    if(buf8t[len-1] != calc_crc8ccit(buf8t,len-1)){
+        std::cout << "\tfalse" << std::endl;
+        return 0;
+    }
+    tcflush(fd,TCIFLUSH);
+    for(int ii = 0; ii < leng; ii++) {
+        std::cout << std::setfill('0') << std::setw(2) << std::hex << (int)buf8t[ii] << std::flush;            
+    }
+    std::cout << "\ttrue" << std::endl;
+    return 1;
+}
+
 int Serial::read_get(uint8_t *buf8t,int len,uint8_t headbyte){
     int leng = 0,finishf=1;
-    long count = 0;
     while(leng<len){
-        //std::cout << "hello" << std::endl;
         if(leng<1){
             leng = read(fd, buf8t, 1);
             if(buf8t[0]!=headbyte){
@@ -132,20 +151,40 @@ int Serial::read_get(uint8_t *buf8t,int len,uint8_t headbyte){
         }else{
             leng += read(fd, buf8t+leng, len-leng);
         }
-        count++;
-        if(count>10){
-            return 0;//time out;
-        }
     }
     if(buf8t[len-1] != calc_crc8ccit(buf8t,len-1)){
         std::cout << "\tfalse" << std::endl;
         return 0;
     }
+    tcflush(fd,TCIFLUSH);
     for(int ii = 0; ii < leng; ii++) {
         std::cout << std::setfill('0') << std::setw(2) << std::hex << (int)buf8t[ii] << std::flush;            
     }
+    std::cout << "\ttrue" << std::endl;
+    return 1;
+}
 
-    //std::cout << std::endl;
+int Serial::read_get(uint8_t *buf8t,int len,int timeoutms){
+    int leng = 0,finishf=1;
+    int count = 0;
+    gettimeofday(&init_time, NULL);
+    while(leng<len){  
+        if(leng<1){
+            leng = read(fd, buf8t, 1);
+        }else{
+            leng += read(fd, buf8t+leng, len-leng);
+        }
+        gettimeofday(&end_time, NULL);
+        if(((int)((end_time.tv_usec - init_time.tv_usec)/1000) - timeoutms) > 0){return 0;}//タイムアウト
+    }
+    if(buf8t[len-1] != calc_crc8ccit(buf8t,len-1)){
+        std::cout << "\tfalse" << std::endl;
+        return 0;
+    }
+    tcflush(fd,TCIFLUSH);
+    for(int ii = 0; ii < leng; ii++) {
+        std::cout << std::setfill('0') << std::setw(2) << std::hex << (int)buf8t[ii] << std::flush;            
+    }
     std::cout << "\ttrue" << std::endl;
     return 1;
 }
@@ -181,10 +220,9 @@ int main(){
     Serial *ser = new Serial(boardrate,devname);
     keyboard ky;
     uint8_t buf8t[5];
-    uint8_t headbyte=0x0a;
     int readret = 0;
     while(1){
-        readret = ser->read_get(buf8t,5,headbyte);
+        readret = ser->read_get(buf8t,5,5);
         if(readret==0){std::cout << "time out" << std::endl;}
         if(ky.kbhit()){
             break;

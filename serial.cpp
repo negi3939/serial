@@ -48,16 +48,24 @@ int Serial::init(){
         std::cout<< "open error!" <<std::endl;
         return -1;
     }
-    tio.c_cflag += CREAD;               // 受信有効
-    tio.c_cflag += CLOCAL;              // ローカルライン（モデム制御なし）
-    tio.c_cflag += CS8;                 // データビット:8bit
-    tio.c_cflag += 0;                   // ストップビット:1bit
-    tio.c_cflag += 0;                   // パリティ:None
-
-    cfsetispeed( &tio, baudRate );   
+    tcgetattr(fd, &oldtio);
+    bzero(&tio,sizeof(tio));
+    tio.c_cflag |= CREAD;               // 受信有効
+    tio.c_cflag |= CLOCAL;              // ローカルライン（モデム制御なし）
+    tio.c_cflag |= CS8;                 // データビット:8bit
+    tio.c_cflag |= 0;                   // ストップビット:1bit
+    tio.c_cflag |= 0;                   // パリティ:None
+    tio.c_oflag = 0;
+    tio.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+    tio.c_cc[VMIN]=0;                   //最低バイト数指定なし
+    tio.c_cc[VTIME]=1;                  //100msecでタイムアウト    
+  
     cfsetospeed( &tio, baudRate );
-    cfmakeraw(&tio);                    // RAWモード
-    tcsetattr( fd, TCSANOW, &tio );     // デバイスに設定を行う
+    cfsetispeed( &tio, baudRate );
+    //cfmakeraw(&tio);                    // RAWモード
+    //tcflush(fd,TCOFLUSH);
+    //tcflush(fd,TCIFLUSH);
+    //tcsetattr( fd, TCSANOW, &tio );     // デバイスに設定を行う
     ioctl(fd, TCSETA, &tio);
 
     gen_crc8ccit_table();
@@ -115,6 +123,7 @@ int Serial::read_get(uint8_t *buf8t,int len,uint8_t headbyte){
     int leng = 0,finishf=1;
     long count = 0;
     while(leng<len){
+        //std::cout << "hello" << std::endl;
         if(leng<1){
             leng = read(fd, buf8t, 1);
             if(buf8t[0]!=headbyte){
@@ -122,6 +131,10 @@ int Serial::read_get(uint8_t *buf8t,int len,uint8_t headbyte){
             }
         }else{
             leng += read(fd, buf8t+leng, len-leng);
+        }
+        count++;
+        if(count>10){
+            return 0;//time out;
         }
     }
     if(buf8t[len-1] != calc_crc8ccit(buf8t,len-1)){
@@ -152,6 +165,7 @@ int Serial::write_string(std::string str){
 }
 
 int Serial::close_s(){
+    tcsetattr(fd, TCSANOW, &oldtio);
     close(fd);
     return 0;
 }
@@ -168,8 +182,10 @@ int main(){
     keyboard ky;
     uint8_t buf8t[5];
     uint8_t headbyte=0x0a;
+    int readret = 0;
     while(1){
-        ser->read_get(buf8t,5,headbyte);
+        readret = ser->read_get(buf8t,5,headbyte);
+        if(readret==0){std::cout << "time out" << std::endl;}
         if(ky.kbhit()){
             break;
         }

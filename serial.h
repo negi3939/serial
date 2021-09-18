@@ -5,7 +5,7 @@ class Serial{
     protected:
         int fd;
         unsigned char *buf;
-        struct termios tio;              // シリアル通信設定
+        struct termios tio,oldtio;              // シリアル通信設定
         int baudRate;                   //速度設定
         char *portname;                 //デバイスファイル名
         std::ofstream log;

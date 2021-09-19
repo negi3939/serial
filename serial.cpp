@@ -240,15 +240,16 @@ int main(){
     int boardrate = B115200;
     Serial *ser = new Serial(boardrate,devname);
     keyboard ky;
+    int sendbyte = 7;
     uint8_t read8t[5];
-    uint8_t send8t[5];
+    uint8_t send8t[sendbyte];
     int readret = 0;
     send8t[0] = 0x0b;
-    send8t[1] = 0x00;
-    send8t[2] = 0x00;
-    send8t[3] = 0x00;
+    for(int ii=1;ii<sendbyte-1;ii++){
+        send8t[ii] = 0x00;
+    }
     struct timeval start_time,end_time;   //時間
-    int data = 0;
+    int data[2] = {0,0};
     double omega = 3.0;
     double time_second = 0.0;
     ser->setdisplay();
@@ -256,9 +257,12 @@ int main(){
     while(1){
         gettimeofday(&end_time, NULL);
         time_second = (double)(end_time.tv_sec - start_time.tv_sec)+(double)(end_time.tv_usec - start_time.tv_usec)*0.000001;
-        data = (int)(120.0*sin(omega*time_second));
-        send8t[1] = ((uint16_t)data >> 8 ) & 0xFF; 
-        send8t[2] = (uint16_t)data & 0xFF;
+        data[0] = (int)(120.0*sin(omega*time_second));
+        data[1] = (int)(120.0*cos(omega*time_second));
+        for(int ii=0;ii<(sizeof(data)/sizeof(int));ii++){
+            send8t[2*ii+1] = ((uint16_t)data[ii] >> 8 ) & 0xFF; 
+            send8t[2*ii+2] = (uint16_t)data[ii] & 0xFF;
+        }
         ser->write_wcrc(send8t,sizeof(send8t));
         readret = ser->read_get(read8t,sizeof(read8t),5);
         if(1){

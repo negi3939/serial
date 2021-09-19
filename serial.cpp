@@ -1,6 +1,7 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
+#include <math.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -69,8 +70,12 @@ int Serial::init(){
     ioctl(fd, TCSETA, &tio);
 
     gen_crc8ccit_table();
-
+    display = SerialD::OFF;
     return 0;
+}
+
+int Serial::setdisplay(){
+    display = SerialD::ON;
 }
 
 void Serial::gen_crc8ccit_table(){
@@ -109,13 +114,13 @@ int Serial::read_trush(){
     while(finishf) {
         len = read(fd, buf, sizeof(buf));
         for(int ii = 0; ii < len; ii++) {
-            std::cout << buf[ii] << std::flush;
+            if(display){std::cout << buf[ii] << std::flush;}
             if(buf[ii]=='\n'){
                 finishf = 0;
             }   
         }
     }
-    std::cout << std::endl;
+    if(display){std::cout << std::endl;}
     return 0;
 }
 
@@ -129,14 +134,14 @@ int Serial::read_get(uint8_t *buf8t,int len){
         }
     }
     if(buf8t[len-1] != calc_crc8ccit(buf8t,len-1)){
-        std::cout << "\tfalse" << std::endl;
+        if(display){std::cout << "\tfalse" << std::endl;}
         return 0;
     }
     tcflush(fd,TCIFLUSH);
     for(int ii = 0; ii < leng; ii++) {
-        std::cout << std::setfill('0') << std::setw(2) << std::hex << (int)buf8t[ii] << std::flush;            
+        if(display){std::cout << std::setfill('0') << std::setw(2) << std::hex << (int)buf8t[ii] << std::flush;}            
     }
-    std::cout << "\ttrue" << std::endl;
+    if(display){std::cout << "\ttrue" << std::endl;}
     return 1;
 }
 
@@ -153,14 +158,16 @@ int Serial::read_get(uint8_t *buf8t,int len,uint8_t headbyte){
         }
     }
     if(buf8t[len-1] != calc_crc8ccit(buf8t,len-1)){
-        std::cout << "\tfalse" << std::endl;
+        if(display){std::cout << "\tfalse" << std::endl;}
         return 0;
     }
     tcflush(fd,TCIFLUSH);
-    for(int ii = 0; ii < leng; ii++) {
-        std::cout << std::setfill('0') << std::setw(2) << std::hex << (int)buf8t[ii] << std::flush;            
+    if(display){
+        for(int ii = 0; ii < leng; ii++) {
+            std::cout << std::setfill('0') << std::setw(2) << std::hex << (int)buf8t[ii] << std::flush;            
+        }
+        std::cout << "\ttrue" << std::endl;
     }
-    std::cout << "\ttrue" << std::endl;
     return 1;
 }
 
@@ -178,14 +185,16 @@ int Serial::read_get(uint8_t *buf8t,int len,int timeoutms){
         if(((int)((end_time.tv_usec - init_time.tv_usec)/1000) - timeoutms) > 0){return 0;}//タイムアウト
     }
     if(buf8t[len-1] != calc_crc8ccit(buf8t,len-1)){
-        std::cout << "\tfalse" << std::endl;
+        if(display){std::cout << "\tfalse" << std::endl;}
         return 0;
     }
     tcflush(fd,TCIFLUSH);
-    for(int ii = 0; ii < leng; ii++) {
-        std::cout << std::setfill('0') << std::setw(2) << std::hex << (int)buf8t[ii] << std::flush;            
+    if(display){
+        for(int ii = 0; ii < leng; ii++) {
+            std::cout << std::setfill('0') << std::setw(2) << std::hex << (int)buf8t[ii] << std::flush;            
+        }
+        std::cout << "\ttrue" << std::endl;
     }
-    std::cout << "\ttrue" << std::endl;
     return 1;
 }
 
@@ -199,7 +208,6 @@ int Serial::write_string(std::string str){
     ret = write(fd, buffcl, 2);
     ret = write(fd, buff, num);
     ret = write(fd, buffcl, 2);
-    //std::cout << "send:" << buff << std::endl; 
     return ret;
 }
 
@@ -239,22 +247,24 @@ int main(){
     send8t[1] = 0x00;
     send8t[2] = 0x00;
     send8t[3] = 0x00;
-
-    int data = -90;
-    long count = 0;
+    struct timeval start_time,end_time;   //時間
+    int data = 0;
+    double omega = 3.0;
+    double time_second = 0.0;
+    ser->setdisplay();
+    gettimeofday(&start_time, NULL);
     while(1){
-        if(count >30){
-            data += 1;
-            count = 0;
-        }
-        if(data>90){data = -90;}
+        gettimeofday(&end_time, NULL);
+        time_second = (double)(end_time.tv_sec - start_time.tv_sec)+(double)(end_time.tv_usec - start_time.tv_usec)*0.000001;
+        data = (int)(120.0*sin(omega*time_second));
         send8t[1] = ((uint16_t)data >> 8 ) & 0xFF; 
         send8t[2] = (uint16_t)data & 0xFF;
         ser->write_wcrc(send8t,sizeof(send8t));
         readret = ser->read_get(read8t,sizeof(read8t),5);
-        std::cout << std::dec << data << "\t" <<std::setfill('0') << std::setw(2) << std::hex << (int)send8t[1] << (int)send8t[2]<< "\t" <<std::flush;
+        if(1){
+            std::cout << std::dec << data << "\t" <<std::setfill('0') << std::setw(2) << std::hex << (int)send8t[1] << (int)send8t[2]<< "\t" <<std::flush;
+        }
         //if(readret==0){std::cout << "time out" << std::endl;}
-        count++;
         if(ky.kbhit()){
             break;
         }

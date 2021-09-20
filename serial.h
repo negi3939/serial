@@ -24,6 +24,7 @@ class Serial{
         Serial();
         Serial(int baundrate);
         Serial(int baundrate,char *devname);
+        Serial(int baundrate,std::string devname);
         int init();                                                                         //ポートの初期化
         int setdisplay();                                                                   //ターミナルへの表示を設定
         void gen_crc8ccit_table();                                                          //CRCテーブル作成

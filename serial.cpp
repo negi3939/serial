@@ -42,6 +42,14 @@ Serial::Serial(int baundrate,char *devname){
     baudRate = baundrate;
     init();
 }
+Serial::Serial(int baundrate,std::string devname){
+    buf = new unsigned char[255];
+    int sizename = 30;
+    portname = devname.c_str();
+    std::cout << portname << std::endl;
+    baudRate = baundrate;
+    init();
+}
 
 int Serial::init(){
 
@@ -235,14 +243,52 @@ Serial::~Serial(){
 }
 
 #if defined(SERIAL_IS_MAIN)
-int main(){
-    char devname[] = "/dev/ttyS11";
+
+int main(int argc,char *argv[]){
+    std::string devname = "/dev/ttyS11";
     int boardrate = B115200;
+
+    std::string *argvst = new std::string[argc];
+    int jj = 0;
+    for(int ii=1;ii<argc;ii++){
+        argvst[ii] = argv[ii];
+        if(argvst[ii].substr(0,4)=="/dev"){
+            devname = argvst[ii];
+        }
+        if(argvst[ii]=="B9600"){
+            boardrate = B9600;
+        }
+        if(argvst[ii]=="B19200"){
+            boardrate = B19200;
+        }
+        if(argvst[ii]=="B38400"){
+            boardrate = B38400;
+        }
+        if(argvst[ii]=="B57600"){
+            boardrate = B57600;
+        }
+        if(argvst[ii]=="B115200"){
+            boardrate = B115200;
+        }
+        if(argvst[ii]=="B230400"){
+            boardrate = B230400;
+        }
+        if(argvst[ii]=="B500000"){
+            boardrate = B500000;
+        }
+        if(argvst[ii]=="B1000000"){
+            boardrate = B1000000;
+        }
+    }
+    
     Serial *ser = new Serial(boardrate,devname);
     keyboard ky;
+
     int motornum = 7;
     int sendbyte = 1+2*motornum+1;
     int readbyte = 3;
+    
+    
     uint8_t read8t[readbyte];
     uint8_t send8t[sendbyte];
     int readret = 0;

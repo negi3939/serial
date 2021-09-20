@@ -1,7 +1,7 @@
 # 単に実行
  $ make
  $ ./serial.exe で実行する.実行後にopen errorと出た場合はポートを確認．またfalseと出た場合はボーレートや相手のパケットを確認
- $ ./serial.exe /dev//ttyS1 B115200 でポートやボーレートを指定可能
+ $ ./serial.exe /dev/ttyS1 B115200 でポートやボーレートを指定可能
 
 # class Serialを使う
 ## コンストラクタ

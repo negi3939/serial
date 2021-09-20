@@ -87,7 +87,7 @@ int Serial::setdisplay(){
 }
 
 void Serial::gen_crc8ccit_table(){
-    crc8ccit_poly = 0x8D;
+    crc8ccit_poly = 0x6F;
     uint8_t val;
     
     crc8ccit_table = new uint8_t[256];

@@ -19,19 +19,22 @@
 
 
 Serial::Serial(){
-    baudRate = B9600;
+    crc8ccit_poly = 0x6F;
+    baudRate = B115200;
     buf = new unsigned char[255];
     portname = new char[12];
-    portname = "/dev/ttyS4";
+    portname = "/dev/ttyS1";
     init();
 }
 
 Serial::Serial(int baundrate){
+    crc8ccit_poly = 0x6F;
     baudRate = baundrate;
     buf = new unsigned char[255];
     init();
 }
 Serial::Serial(int baundrate,char *devname){
+    crc8ccit_poly = 0x6F;
     buf = new unsigned char[255];
     int sizename = 30;
     portname = new char[sizename];
@@ -43,6 +46,17 @@ Serial::Serial(int baundrate,char *devname){
     init();
 }
 Serial::Serial(int baundrate,std::string devname){
+    crc8ccit_poly = 0x6F;
+    buf = new unsigned char[255];
+    int sizename = 30;
+    portname = devname.c_str();
+    std::cout << portname << std::endl;
+    baudRate = baundrate;
+    init();
+}
+
+Serial::Serial(int baundrate,std::string devname,uint8_t l_poly){
+    crc8ccit_poly = l_poly;
     buf = new unsigned char[255];
     int sizename = 30;
     portname = devname.c_str();
@@ -87,7 +101,6 @@ int Serial::setdisplay(){
 }
 
 void Serial::gen_crc8ccit_table(){
-    crc8ccit_poly = 0x6F;
     uint8_t val;
     
     crc8ccit_table = new uint8_t[256];
@@ -165,16 +178,11 @@ int Serial::read_get(uint8_t *buf8t,int len,uint8_t headbyte){
             leng += read(fd, buf8t+leng, len-leng);
         }
     }
-    if(buf8t[len-1] != calc_crc8ccit(buf8t,len-1)){
-        if(display){std::cout << "\tfalse" << std::endl;}
-        return 0;
-    }
     tcflush(fd,TCIFLUSH);
     if(display){
         for(int ii = 0; ii < leng; ii++) {
             std::cout << std::setfill('0') << std::setw(2) << std::hex << (int)buf8t[ii] << std::flush;            
         }
-        std::cout << "\ttrue" << std::endl;
     }
     return 1;
 }
